@@ -4,22 +4,10 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "cluster_version" {
-  description = "Kubernetes cluster version"
-  type        = string
-  default     = "1.27"
-}
-
 variable "cluster_name" {
-  description = "EKS cluster name"
+  description = "ECS cluster name"
   type        = string
-  default     = "my_eks_cluster"
-}
-
-variable "instance_types" {
-  description = "EC2 instances used for K8s nodes"
-  type        = list
-  default     = ["t2.small"]
+  default     = "my_ecs_cluster"
 }
 
 variable "vpc_cidr" {
@@ -28,20 +16,8 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-variable "cluster_min_size" {
-  description = "K8s Cluster minimum size"
+variable "desired_task_count" {
+  description = "Number of desired ECS tasks"
   type        = number
   default     = 1
-}
-
-variable "cluster_max_size" {
-  description = "K8s Cluster maximum size"
-  type        = number
-  default     = 3
-}
-
-variable "cluster_desired_size" {
-  description = "K8s Cluster desired size"
-  type        = number
-  default     = 2
 }
