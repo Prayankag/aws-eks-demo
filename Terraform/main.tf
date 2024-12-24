@@ -1,25 +1,44 @@
 terraform {
   backend "remote" {
-    # The name of your Terraform Cloud organization.
     organization = "TeKanAid"
 
-    # The name of the Terraform Cloud workspace to store Terraform state files in.
     workspaces {
-      name = "backstage-eks-aws"
+      name = "backstage-ecs-aws"
     }
   }
 }
 
-module "eks" {
-  source  = "app.terraform.io/TeKanAid/eks/aws"
-  version = "0.0.7"
+module "ecs" {
+  source  = "terraform-aws-modules/ecs/aws"
+  version = "4.0.0"
 
-  region               = "us-east-1"
-  cluster_version      = "1.27"
-  cluster_name         = "my_eks_cluster"
-  instance_types       = ["t2.small"]
-  vpc_cidr             = "10.0.0.0/16"
-  cluster_min_size     = 1
-  cluster_max_size     = 3
-  cluster_desired_size = 2
+  cluster_name = var.cluster_name
+  region       = var.region
+
+  vpc_id       = module.vpc.vpc_id
+  subnets      = module.vpc.public_subnets
+
+  ecs_services = [
+    {
+      name             = "example-service"
+      task_definition  = "${var.cluster_name}-task"
+      desired_count    = 1
+      launch_type      = "FARGATE"
+      deployment_min   = 100
+      deployment_max   = 200
+      health_check_grace_period = 60
+    }
+  ]
+}
+
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+  version = "3.19.0"
+
+  name = "${var.cluster_name}-vpc"
+  cidr = var.vpc_cidr
+
+  azs             = data.aws_availability_zones.available.names
+  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
+  private_subnets = ["10.0.3.0/24", "10.0.4.0/24"]
 }
