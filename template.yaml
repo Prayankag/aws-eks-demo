@@ -1,0 +1,129 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: create-ecs-cluster
+  title: Create an ECS Cluster
+  description: Create an ECS Cluster to deploy and manage containerized applications
+  tags: ['recommended', 'aws', 'ecs']
+spec:
+  owner: guests
+  type: service
+  parameters:
+    - title: ECS Cluster and Task Definition
+      required:
+         - ClusterName
+         - Region
+         - LaunchType
+         - TaskDefinitionName
+         - ContainerImage
+         - DesiredCount
+         - ServiceName
+      properties:
+        ClusterName:
+          title: ECS Cluster Name
+          type: string
+          description: Name of the ECS Cluster to be created.
+          ui:autofocus: true
+
+        Region:
+          title: AWS Region
+          type: string
+          description: Name of the region where you want to create the ECS cluster, e.g., us-east-1, ap-south-1, etc.
+
+        LaunchType:
+          title: Launch Type
+          type: string
+          description: ECS launch type (e.g., EC2 or FARGATE).
+          enum:
+            - EC2
+            - FARGATE
+
+        TaskDefinitionName:
+          title: Task Definition Name
+          type: string
+          description: Name of the task definition to be created for ECS tasks.
+
+        ContainerImage:
+          title: Container Image
+          type: string
+          description: The container image (e.g., `nginx:latest`, `amazonlinux`).
+
+        DesiredCount:
+          title: Desired Task Count
+          type: integer
+          description: The number of tasks to run in the cluster.
+
+        ServiceName:
+          title: ECS Service Name
+          type: string
+          description: Name of the ECS Service to be created.
+
+    - title: Choose a Repository Location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Location of the repository
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+# Fetching the template details
+    - id: fetch-base
+      name: Fetching Details from Content Folder
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          clusterName: ${{ parameters.ClusterName }}
+          repo_name: ${{ (parameters.repoUrl | parseRepoUrl)["repo"] }}
+          repo_owner: ${{ (parameters.repoUrl | parseRepoUrl)["owner"] }}
+
+# Publish the content to GitHub
+    - id: publish
+      name: Publishing Details
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: This repo is to create an ECS cluster ${{ parameters.ClusterName }} using Backstage.
+        repoUrl: ${{ parameters.repoUrl }}
+        repoVisibility: public
+        defaultBranch: main
+        requireCodeOwnerReviews: true
+        permissions:
+          actions: write
+          contents: write
+
+# Triggering GitHub Actions to create ECS resources
+    - id: github-action
+      name: Starting GitHub Action
+      action: github:actions:dispatch
+      input:
+        workflowId: manage-eks-cluster.yml
+        repoUrl: ${{ parameters.repoUrl }}
+        branchOrTagName: 'main'
+        workflowInputs:
+          clusterName: ${{ parameters.ClusterName }}
+          serviceName: ${{ parameters.ServiceName }}
+          containerImage: ${{ parameters.ContainerImage }}
+          desiredCount: ${{ parameters.DesiredCount }}
+
+# Registering the new component in Backstage catalog
+    - id: register
+      name: Registering the new Component 
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/component-info.yaml'
+
+# Output links are displayed to the user after the template execution
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
